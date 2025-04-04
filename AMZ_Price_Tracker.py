@@ -32,8 +32,11 @@ def get_price(url):
         time.sleep(2)  # Wait for the page to load
 
         # Find the price element
-        price_element = driver.find_element(By.CSS_SELECTOR, "span.a-offscreen")
-        if price_element:
+        # Find the 'a-declarative' element that contains the price
+        price_element = driver.find_element(By.CSS_SELECTOR, "span.a-declarative span.a-price span.a-offscreen")
+        price_element_big = driver.find_element(By.CSS_SELECTOR, "span.a-declarative span.a-price span.a-price-whole")
+        price_element_small = driver.find_element(By.CSS_SELECTOR, "span.a-declarative span.a-price span.a-price-fraction")
+        if price_element and not price_element_big and not price_element_small:
             price_text = price_element.get_attribute("textContent")
             print(f"Extrahierter Text: {price_text}")  # Debugging: Zeige den extrahierten Text an
             
@@ -43,6 +46,14 @@ def get_price(url):
             # Umwandlung in Float (Dezimaltrennzeichen: Punkt)
             price = float(price_text.replace(",", "."))
             return price
+        elif price_element_big and price_element_small:
+            price_text_big = price_element_big.get_attribute("textContent")
+            price_text_small = price_element_small.get_attribute("textContent")
+            print(f"Extrahierter Text: {price_text_big}.{price_text_small}")  # Debugging: Zeige den extrahierten Text an
+
+            price_text_2 = price_text_big + '.' + price_text_small
+            
+            return float(price_text_2.replace(",", ""))
         else:
             print("Preis konnte nicht gefunden werden.")
             return None
@@ -52,6 +63,7 @@ def get_price(url):
     finally:
         if driver:
             driver.quit()
+
 
 # Laden der Links und Zielpreise aus der Datei
 def load_links(file_path):
@@ -82,16 +94,16 @@ async def main():
             if url in last_notification_time:
                 time_since_last_check = datetime.now() - last_notification_time[url]
                 # Wenn weniger als 'wait_time' seit der letzten Benachrichtigung vergangen ist, überspringen
-                if time_since_last_check < timedelta(minutes=720):  # Beispiel: 30 Minuten warten
+                if time_since_last_check < timedelta(minutes=300):  # Beispiel: 30 Minuten warten
                     print(f"Produkt {produktname} wurde kürzlich überprüft. Überspringen...")
                     continue
 
             print(f"Prüfe {url}...")
             price = get_price(url)
             if price is not None:
-                print(f"Aktueller Preis: {price} EUR, Zielpreis: {target_price} EUR")
+                print(f"Aktueller Preis: {price} EUR, Zielpreis: {target_price} EUR\nFuer das Produkt: {produktname}")
                 if price <= target_price:
-                    message = f"Das Produkt {produktname} unter {url} ist im Angebot! Aktueller Preis: {price} EUR"
+                    message = f"Das Produkt {produktname} unter {url} ist im Angebot!\nAktueller Preis: {price} EUR"
                     await bot.send_message(chat_id=CHAT_ID, text=message)  # Asynchron senden
                     print("Benachrichtigung gesendet.")
 
